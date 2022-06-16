@@ -30,7 +30,7 @@
                     <label for="update_payment_status">{{translate('Payment Status')}}</label>
 					@if(@Auth::user()->staff->role->name!="Call Center Department")
                     @if ($delivery_status != 'delivered')
-                        <select class="form-control demo-select2"  data-minimum-results-for-search="Infinity" id="update_payment_status" @php echo Auth::user()->staff['role_id'] == 6?"disabled":""; @endphp >
+                        <select class="form-control demo-select2"  data-minimum-results-for-search="Infinity" id="update_payment_status" @php echo @Auth::user()->staff['role_id'] == 6?"disabled":""; @endphp >
                             <option value="paid" @if ($payment_status == 'paid') selected @endif>{{translate('Paid')}}</option>
                             <option value="unpaid" @if ($payment_status == 'unpaid') selected @endif>{{translate('Unpaid')}}</option>
                         </select>
