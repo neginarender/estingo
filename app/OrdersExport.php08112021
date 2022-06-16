@@ -1,0 +1,144 @@
+<?php
+
+namespace App;
+
+use App\Order;
+use App\Product;
+use App\Color;
+use App\OrderDetail;
+use App\User;
+use App\RefundRequest;
+use App\ReferalUsage;
+use App\DeliveryBoy;
+use App\AssignOrder;
+use Auth;
+use Session;
+use Maatwebsite\Excel\Concerns\FromCollection;
+use Maatwebsite\Excel\Concerns\FromQuery;
+use Maatwebsite\Excel\Concerns\WithMapping;
+use Maatwebsite\Excel\Concerns\WithHeadings;
+use Maatwebsite\Excel\Concerns\ShouldAutoSize;
+use DB;
+
+class OrdersExport implements FromCollection, WithMapping, WithHeadings, ShouldAutoSize
+{	
+	public function __construct($from = NULL,$to = NUll)
+    {
+        $this->from = $from;
+        $this->to = $to;
+    }
+    public function collection()
+    {
+    	if(isset($this->from)){
+
+			$from = date('Y-m-d',strtotime($this->from));
+			$to = date('Y-m-d',strtotime($this->to));
+
+			if($from != $to){
+				$orders = Order::whereBetween('created_at', [$from, $to])->get();
+			}else{
+				$orders = Order::whereDate('created_at',$from)->get();
+			}
+		}else{
+
+			$orders = Order::all();
+		}
+		return $orders;
+
+    }
+
+    public function headings(): array
+    {
+			
+        return [
+            'Order Code',
+            'Num. of Products',
+            'Customer',
+            'Address',
+            'Pin Code',
+            'Sorting HUB',
+            'Amount',
+            'Delivery Status',
+            'Payment Method',
+            'Payment Status', 
+        ];
+    }
+
+    /**
+    * @var Order $order
+    */
+    public function map($orders): array
+    {
+		$date = date("jS F, Y h:i:s A", $orders->date);
+		$numProduct = $orders->orderDetails->where('order_id', $orders->id)->sum('quantity');
+		
+		$delivery_peercode = ReferalUsage::where('order_id',$orders->id)->first('referal_code');
+		if(!empty($delivery_peercode)){
+			$peercode = $delivery_peercode->referal_code;
+		}else{
+			$peercode = 'NA';
+		}
+		
+		//dd($orders->shipping_address);
+		$address = json_decode($orders->shipping_address);
+
+		if($orders->user != null){
+			$customer = $orders->user->name.' '.$address->phone;
+		}else{
+			if(!empty($address->name) && !empty($address->phone)){
+				$customer = 'Guest-'.$address->name.''.$address->phone;
+			}else{
+				$customer = 'Guest';
+			}
+		}
+		$customer_detail = $customer.' '.$peercode;
+
+		$sortingHub = ShortingHub::whereRaw('json_contains(area_pincodes, \'["' . $orders->shipping_pin_code . '"]\')')->first();
+			if(!empty($sortingHub)){
+			  $sortingHub = $sortingHub->user->name;
+
+			}else{
+				$sortingHub = "Not Available";
+			}
+			
+		if($orders->wallet_amount == 0){
+			$total_amount = $orders->orderDetails->where('order_id', $orders->id)->where('delivery_status','!=','return')->sum('price') + $orders->orderDetails->where('delivery_status','!=','return')->where('order_id', $orders->id)->sum('shipping_cost') - $orders->orderDetails->where('delivery_status','!=','return')->where('order_id', $orders->id)->sum('peer_discount');
+		}else{
+			$total_amount = $orders->orderDetails->where('order_id', $orders->id)->sum('price') + $orders->orderDetails->where('order_id', $orders->id)->sum('shipping_cost'); 
+		}
+
+		if($orders->referal_discount > 0){
+			  $referral = $orders->referal_discount;
+		}
+
+		if($orders->wallet_amount > 0){
+			$wallet = $orders->wallet_amount;
+			$total_amount = $total_amount - $wallet;
+		}
+		$amount = single_price($total_amount);
+		
+		$deliveryStatus = ucfirst(str_replace('_', ' ', $orders->order_status)).' '.date('d M,Y H:i:s', strtotime($orders->updated_at));
+		
+		$paymentType = ucfirst(str_replace('_', ' ', $orders->payment_type));
+
+		if(!empty($address->address)){
+			$user_address = $address->address;
+		}else{
+			$user_address = "";
+		}
+
+		return [
+            $orders->code.' '.$date,
+			$numProduct,
+            $customer_detail,
+            $user_address,
+            $orders->shipping_pin_code,
+            $sortingHub,
+            $amount,
+            $deliveryStatus,
+            $paymentType,
+            $orders->payment_status,
+            
+        ]; 
+    }
+}

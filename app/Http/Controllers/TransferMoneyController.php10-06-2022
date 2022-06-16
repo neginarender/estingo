@@ -1,0 +1,37 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Razorpay\Api\Api;
+use App\Traits\WalletTrait;
+
+class TransferMoneyController extends Controller
+{
+    //
+    use WalletTrait;
+
+    public function __construct(){
+    }
+
+    public function viewContactInfo(){
+        $endpoint = "https://api.razorpay.com/v1/contacts";
+        $requestData = "";
+        $res = $this->apiRequest('GET',$endpoint,$requestData);
+        $contacts = array();
+        if($res->getData()->success == true){
+            $contacts = $res->getData()->response->items;
+        }
+        return view('transfer_money.index',compact('contacts'));
+    }
+
+
+    public function addAccount(REQUEST $request,$cont_id){
+        dd(decrypt($cont_id));
+    }
+
+
+    public function transferMoney(REQUEST $request){
+        dd($request->all());
+    }
+}

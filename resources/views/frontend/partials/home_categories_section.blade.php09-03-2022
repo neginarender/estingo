@@ -1,0 +1,206 @@
+@php 
+$shortId = [];
+    if(Cookie::has('sid')){
+        $shortId['sorting_hub_id'] = decrypt(Cookie::get('sid'));
+    }
+    else{
+            if(Cookie::has('pincode')){
+                $pincode = Cookie::get('pincode');
+                $shortId = \App\ShortingHub::whereRaw('JSON_CONTAINS(area_pincodes, \'["'.$pincode.'"]\')')
+                ->selectRaw('user_id as sorting_hub_id')
+                ->first('sorting_hub_id');
+            }
+            
+        }
+    $categories = featured_categories($shortId);
+@endphp
+@if(!empty($categories))
+@foreach ($categories as $key => $category)
+@php
+$to_remove = array('20','27','31','19');
+if(in_array($category->id,$to_remove))
+{
+    continue;
+}
+@endphp
+    @if ($category != null)
+        <section class="pt-0 bg-white pb-0" >
+            <div class="container">
+                <div class="row">
+                    <div class="col-md-12  "> 
+                        <div class="sec_title  ">
+                             <a href="{{ route('products.category', $category->slug) }}" class="btn btn-success btn-sm float-right mt-1">Explore All</a>
+                             <h4>{{ $category->name }}</h4>
+                        </div> 
+                    </div>
+                </div>
+                <div class="caorusel-box arrow-round gutters-5 mt-2 mb-5">
+                    <div class="slick-carousel" data-slick-items="6" data-slick-xl-items="6" data-slick-lg-items="6"  data-slick-md-items="3" data-slick-sm-items="2" data-slick-xs-items="2">
+                    @php
+                    
+                    if(!empty($shortId)){
+                        $productstocks = \App\ProductStock::where('price', 0)->pluck('product_id')->all();
+                        $products = \App\Product::leftJoin('mapping_product','products.id','=','mapping_product.product_id')
+                            ->where('products.published', 1)
+                            ->where('products.category_id', $category->id)
+                            ->where('mapping_product.sorting_hub_id', $shortId['sorting_hub_id'])
+                            ->where('mapping_product.published',1)
+                            ->whereNotIn('products.id', $productstocks)
+                            ->select('products.*','mapping_product.qty','mapping_product.purchased_price','mapping_product.selling_price')
+                            ->orderBy('mapping_product.top_product','DESC')
+                            ->latest()
+                            ->limit(6)
+                            ->get();
+                            
+                    }else{
+                        $productstocks = \App\ProductStock::where('price', 0)->pluck('product_id')->all();
+                        $products = filter_products(\App\Product::where('published', 1)->where('category_id', $category->id))->whereNotIn('products.id', $productstocks)->orderBy('top_product','DESC')->latest()->limit(6)->get();
+
+                    }
+                    
+                    @endphp 
+
+                        @foreach ($products as $key => $product)
+                         <form class="height-auto" id="option-choice-form_{{$product->id}}">
+                                <input type="hidden" id="option_form{{ $product->id }}" value="" />
+                                <input type="hidden" name="_token" value="{{ csrf_token() }}">      
+                                <input type="hidden" name="id" value="{{ $product->id }}">
+                                @php 
+                                $attr = json_decode($product->choice_options);
+                                
+                                @endphp
+                                @foreach($attr as $key => $choice)
+                                    @foreach ($choice->values as $key => $value)
+                             <input type="hidden" name="attribute_id_{{$choice->attribute_id}}" value="{{ $value }}">
+                                    @endforeach
+                             @endforeach
+                            <div class="caorusel-card">
+                                <div class="product-card-2 shop-cards shop-tech">
+                                    <div class="card-body p-0">
+                                        <div class="card-image">
+                                            <a href="{{ route('product', $product->slug) }}" class="d-block">
+                                                <img class="img-fit lazyload mx-auto" src="{{Storage::disk('s3')->url('frontend/images/placeholder.jpg')}}" data-src="{{Storage::disk('s3')->url($product->thumbnail_img)}}" alt="{{ __($product->name) }}">
+                                            </a>
+                                        </div>
+                                        <div class="p-md-2 p-2 prod_info">
+                                            @if(Session::has('referal_discount'))
+                                            
+                                                <div class="discount homep" >
+                                                    <span>{{ peer_discounted_percentage($product->id,$shortId) }}% Off</span>
+                                                    <img  src="{{ static_asset('frontend/images/discount.png') }}" >
+                                                </div>
+                                             @endif    
+                                            <h2 class="product-title p-0">
+                                                <span>{{ ucwords($category->name) }}</span>
+                                                <a href="{{ route('product', $product->slug) }}" class=" text-truncate">{{ __($product->name) }}</a>
+                                                <span class="quant">
+                                                    @if ($product->choice_options != null)
+                                                        @foreach (json_decode($product->choice_options) as $key => $choice)
+                                                            @foreach ($choice->values as $key => $value)
+                                                                {{ $value }}
+                                                            @endforeach   
+                                                        @endforeach
+                                                    @endif
+                                                </span>
+                                                <!-- <span class="quant">{{ $product->unit }}</span> -->
+                                            </h2>
+                                            <?php
+                                            if(!empty($shortId)){
+                                                $maxquantity_bysh = \App\MappingProduct::where('sorting_hub_id',$shortId['sorting_hub_id'])->where('product_id',$product->id)->where('published',1)->first('max_purchaseprice');
+                                                $maxquantity = $maxquantity_bysh['max_purchaseprice'];
+                                            }else{
+                                                $maxquantity = 0;
+                                            }
+
+                                            if(!empty($product->max_purchase_qty)){
+                                                $adminmaxquantity = $product->max_purchase_qty;
+                                            }else{
+                                                $adminmaxquantity = 0;
+                                            }  
+                                           ?>
+                                             <div class="price-box">
+                                            @php 
+                                            $price = peer_discounted_newbase_price($product->id,$shortId); 
+                                            @endphp
+                                            @if(Session::has('referal_discount'))
+                                                @if(!empty($shortId))  
+                                                            <span class="product-price strong-600">{{ single_price($price) }}</span>
+                                                            
+                                                            @if($product['selling_price'] !=0)
+                                                            <span class="old-product-price strong-400">{{ format_price(@$product['selling_price']) }}</span>
+                                                            @else
+                                                            <span class="old-product-price strong-400">{{ format_price(@$product->stocks[0]->price) }}</span>
+                                                            @endif
+
+                                                @else
+                                                            <span class="product-price strong-600">{{ single_price($price) }}</span>
+                                                            <del class="old-product-price strong-400">{{ format_price(@$product->stocks[0]->price) }}</del>
+                                                @endif
+
+                                               
+
+                                            @else    
+                                                  @if(!empty($shortId))
+                                                        
+                                                            @if($product['selling_price'] !=0)
+                                                            <span class="product-price strong-600">{{ format_price(@$product['selling_price']) }}</span>
+                                                            @else
+                                                            <span class="product-price strong-600">{{ format_price(@$product->stocks[0]->price) }}</span>
+                                                            @endif
+                                                        
+                                                        @else
+                                                        <span class="product-price strong-600">{{ format_price(@$product->stocks[0]->price) }}</span>
+                                                   @endif 
+                                            @endif
+
+                                                <input type="hidden" id="stock_qty_{{$product->id}}" name="stock_qty_{{$product->id}}" value="@if(!empty(Cookie::has('pincode'))){{ $product->qty }} @else 0 @endif">
+                                                <input type="hidden" id="limit_qty_{{$product->id}}" name="limit_qty_{{$product->id}}" value="@if($maxquantity!=0){{ $maxquantity}} @else {{ $adminmaxquantity }} @endif">
+                                                <div id="cart_loader{{$product->id}}"></div>
+                                                   <div class="quantity buttons_added new" id="button-group{{ $product->id }}">
+                                                    
+                                                   @php
+                                                    $class = "";
+                                                    if(get_product_cart_qty($product->id)>0)
+                                                    {
+                                                        $class = "display-none";
+                                                    }
+                                                    @endphp
+                                                    <input type="button" value="Add" class="quant_add_btn plus {{$class}}" id="btn_add{{ $product->id }}" onclick="addToCartF('{{$product->id}}')">
+                                                    <input type="button" value="-" class="minus" onclick="add_qty('{{ $product->id }}'),updateCartF('{{ $product->id }}')">
+                                                    <input type="number" step="1" min="0" max="@if(!empty($product->max_purchase_qty))
+                                                    {{ $product->max_purchase_qty}} @endif" onkeypress="add_qty(this.id),addToCartF('{{$product->id}}')" id="pamount_{{ $product->id}}" name="quantity{{$product->id}}" value="{{ get_product_cart_qty($product->id) }}" class="input-text qty text" size="4" readonly>
+                                                    <input type="button" value="+" class="plus" id="plus-button{{ $product->id }}" onclick="add_qty('{{ $product->id }}'),addToCartF('{{$product->id}}')" >
+                                                    <div class="clearfix"></div>
+                                                    
+                                                </div>                                       
+                                            </div>                            
+                                        </div>
+                                    </div>
+                                </div>
+                            </div> 
+                        </form>
+                        @endforeach                
+                    </div>
+                </div>
+            </div>
+        </section>
+    @endif
+@endforeach
+@else
+<span></span>
+@endif
+
+ <script type="text/javascript">
+         $('.quant_add_btn, .quantity.buttons_added.new  .plus').click(function(){
+            $(this).parent().find('.quant_add_btn').hide();
+         });
+         $('.quantity.buttons_added.new  .minus').click(function(){
+               var currentVal = parseInt($(this).parent().find('input[type=number]').val());
+            if( currentVal==1){
+                parseInt($(this).parent().find('input[type=number]').val('0'));
+                $(this).parent().find('.quant_add_btn').show();
+                $(this).parent().find('.quant_add_btn').removeClass('display-none');
+
+            }
+         });
+    </script>

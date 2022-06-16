@@ -1,0 +1,63 @@
+@extends('frontend.layouts.app')
+
+@section('content')
+ <style type="text/css">
+ 	.career-page  .form-group {position: relative;}
+ 	.career-page  .form-group i {position: absolute; right: 10px; color:#194566; font-size: 22px; top: 10px}
+ </style>
+
+<div class="career-page"> 
+	<div class="container">
+		<div class="row">
+			<div class="col-md-4">
+				<h1>Grow with us!</h1>
+				@if ($errors->any())
+					<div class="alert alert-danger">
+						<ul>
+							@foreach ($errors->all() as $error)
+								<li>{{ $error }}</li>
+							@endforeach
+						</ul>
+					</div>
+				@endif
+
+				<form action = "{{route('careers.store')}}" method = "post" enctype="multipart/form-data">
+				@csrf
+					<div  class="form-group">
+						<input type="text" placeholder="Name" name="name" class="form-control">
+					</div>
+					<div  class="form-group">
+						<input type="text" placeholder="Email" name="email" class="form-control" id = "email" required>
+					</div>
+					<div  class="form-group">
+						<input type="text" placeholder="Mobile no." name="phone" class="form-control" required>
+					</div>
+					<div  class="form-group">
+						<input type="text" placeholder="Address" name="address" class="form-control">
+					</div>
+					{{-- <div  class="form-group">
+						<select class="form-control">
+							<option>Select Experience (If any) </option>
+							<option>1 year</option>
+							<option>2 year</option>
+						</select>
+					</div> --}}
+
+					<div  class="form-group">
+						<label class="font-weight-600 text-dark label d-block"><i class="fa fa-upload"></i>Upload your Resume here
+						<input type="file" name="cv" class="form-control file d-none" required></label>
+						<span id="file"></span>
+					</div>
+
+					<div  class="form-group">
+						<button class="btn" type="submit">Submit</button>
+					</div>
+					 
+				</form>
+
+			</div>
+		</div>
+	</div>
+</div>
+
+@endsection
