@@ -3,9 +3,8 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Providers\RouteServiceProvider;
 use Illuminate\Foundation\Auth\VerifiesEmails;
-use App\User;
-use Carbon\Carbon;
 
 class VerificationController extends Controller
 {
@@ -27,7 +26,7 @@ class VerificationController extends Controller
      *
      * @var string
      */
-    protected $redirectTo = '/';
+    protected $redirectTo = RouteServiceProvider::HOME;
 
     /**
      * Create a new controller instance.
@@ -36,23 +35,8 @@ class VerificationController extends Controller
      */
     public function __construct()
     {
-        //$this->middleware('auth');
+        $this->middleware('auth');
         $this->middleware('signed')->only('verify');
         $this->middleware('throttle:6,1')->only('verify', 'resend');
-    }
-
-    public function verification_confirmation($code){
-        $user = User::where('verification_code', $code)->first();
-        if($user != null){
-            $user->email_verified_at = Carbon::now();
-            $user->save();
-            auth()->login($user, true);
-            flash(translate('Your email has been verified successfully'))->success();
-        }
-        else {
-            flash(translate('Sorry, we could not verifiy you. Please try again'))->error();
-        }
-
-        return redirect()->route('dashboard');
     }
 }
