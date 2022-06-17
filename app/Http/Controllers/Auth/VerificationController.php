@@ -11,7 +11,7 @@ class VerificationController extends Controller
 {
     /*
     |--------------------------------------------------------------------------
-    | Email Verification Controller
+    | Email Verification Controller rozana
     |--------------------------------------------------------------------------
     |
     | This controller is responsible for handling email verification for any
